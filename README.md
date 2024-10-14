@@ -4,3 +4,5 @@
 https://doi.org/10.1098/rspb.2021.1931
 
 #### code for the published paper detailing the transcriptome analysis
+
+### Raw RNAseq data can be found on NCBI under BioProject ID PRJNA690095
