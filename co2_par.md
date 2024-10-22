@@ -103,7 +103,7 @@ dds <- DESeqDataSetFromMatrix(countData=countdata, colData=coldata, design=~cond
 vst <- vst(dds, blind=FALSE)
 pcData<-plotPCA(vst, intgroup=c("condition", "parents"), returnData=TRUE, ntop=20000)
 percentVar <- round(100 * attr(pcData, "percentVar"))
-pdf("pca4.pdf")
+jpeg("pca4.jpg")
 ggplot(pcData, aes(PC1, PC2, color= condition, shape=parents, group=condition)) +
   geom_point(size=4)  +
   xlab(paste0("PC1: ",percentVar[1],"% variance")) +
@@ -123,7 +123,7 @@ dev.off()
 vsta <- vst[,vst$condition %in% c("control","transgen")]
 pcData<-plotPCA(vsta, intgroup=c("condition", "parents"), returnData=TRUE, ntop=5000)
 percentVar <- round(100 * attr(pcData, "percentVar"))
-pdf("pca2.pdf")
+jpeg("pca2.jpg")
 ggplot(pcData, aes(PC1, PC2, color=parents, shape=condition, group=parents)) +
   geom_point(size=6)  +
   xlab(paste0("PC1: ",percentVar[1],"% variance")) +
@@ -134,7 +134,7 @@ ggplot(pcData, aes(PC1, PC2, color=parents, shape=condition, group=parents)) +
   stat_ellipse(type="norm", linetype=2)
 dev.off()
 ```
-![](/Users/monroea/Downloads/pca2.pdf)
+![img](https://github.com/monroea22/CO2_parents/blob/main/figures/pca2.jpg)
 
 ### PCA with just acute conditions (control vs CO2)
 ```{r}
@@ -152,7 +152,7 @@ ggplot(pcData, aes(PC1, PC2, color=parents, shape=condition, group=parents)) +
   stat_ellipse(type="norm", linetype=2) 
 dev.off()
 ```
-![](/Users/monroea/Downloads/pca3.pdf)
+![img](https://github.com/monroea22/CO2_parents/blob/main/figures/pca3.jpg)
 
 
 ### LRT test looking at impact of clutch on DEGs
