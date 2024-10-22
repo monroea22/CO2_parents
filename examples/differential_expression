@@ -1,0 +1,244 @@
+
+# Differential expression analysis
+
+### read these papers first:
+
+Interpretation of differential gene expression results of RNA-seq data: review and integration
+McDermaid et al. 2019
+https://doi.org/10.1093/bib/bby067
+
+RNA Sequencing Data: Hitchhiker's Guide to Expression Analysis
+Van den Berge et al. 2019
+https://www.annualreviews.org/doi/full/10.1146/annurev-biodatasci-072018-021255
+
+DEseq2 Manual
+https://bioconductor.org/packages/devel/bioc/vignettes/DESeq2/inst/doc/DESeq2.html
+
+Swish manual
+https://bioconductor.org/packages/release/bioc/vignettes/fishpond/inst/doc/swish.html
+
+DEseq2 is the most widely used for gene-level differential expression.
+
+Swish is newest, you can measure transcript-level differential expression
+
+Both created by Michael Love, he is super acitve on message boards and keeps everything up to date
+
+
+## I used DEseq2 in R
+this is an example of some useful scripts below. There are a lot of different things you can run and look at, these are just a few basic ones. You will definitely need to tailor this to your own dataset
+
+
+```r
+library(DESeq2)
+library(vegan)
+library(rgl)
+library(ape)
+library(ggplot2)
+library(tximport) # only need this if using salmon or kallisto to get abundance data
+```
+
+## Import count table
+ if you used salmon use tximport to get count table into the right format, DESeq manual has code for how to do this
+
+
+```r
+#feature counts import
+countdata <- read.table('brain_counts3.txt', header=TRUE, row.names=1)
+```
+
+```r
+# clean up data table
+countdata <- countdata[ ,6:ncol(countdata)]
+colnames(countdata) <- gsub("\\.bam$", "", colnames(countdata))
+colnames(countdata) <- gsub("X", "", colnames(countdata))
+
+# turn it into a data matrix
+countdata <- as.matrix(countdata)
+
+# add in any extra info for each sample like tissue or condition
+coldata<-read.table('brain_cond.txt', row.names=1)
+coldata<-coldata[,c("condition","parents","tank")]
+
+# check that the IDs for each data table match up
+all(rownames(coldata) == colnames(countdata))
+
+# check on total abundance counts per sample
+totalCounts=colSums(countdata)
+totalCounts
+mean(totalCounts)
+```
+## create the DEseq data set
+
+```r
+# this code will change depending on where your count data set comes from
+# the design indicates how to model your samples, any variable here needs to be a part of the coldata table
+dds <- DESeqDataSetFromMatrix(countData=countdata, colData=coldata, design=~co2+temp)
+```
+
+## run the model
+```r
+dds <- DESeq(dds)
+
+res <- results(dds)
+# prints out the log2fold change and p-value based on what you want to compare in your design above
+res 
+summary(res)
+
+# filter for only significant differences
+res<-res[order(res$padj),]
+table(res$padj<0.05)
+```
+## transfrom the data and visualize
+
+```r
+#variance stabilizing transformation
+vst <- vst(dds, blind=FALSE)
+
+# plot and look for extreme outliers
+plotPCA(vst, "parents") +
+  geom_label(aes(label = name)) # adds names so you know who the outliers are
+```
+
+## Remove extreme outliers from the dds object
+
+```r
+# find column number of sample to be removed
+colnames(dds)
+
+dds<-dds[,-26] #highCO2 11
+```
+
+## rerun to see if PCA plot has stabilized
+
+```r
+vst <- vst(dds, blind=FALSE)
+plotPCA(vst, "parents")
+```
+
+## plot that looks at two seperate factors and the top 1000 genes 
+good to see if there are any distinct patterns in your data
+
+can change ntop and see at what point the patterns show up/dissapear, so how many genes are driving differences
+
+```r
+pcData<-plotPCA(vst,intgroup=c("condition", "parents"), returnData=TRUE, ntop=1000)
+
+percentVar <- round(100 * attr(pcData, "percentVar"))
+
+ggplot(pcData, aes(PC1, PC2, color=condition, shape=parents)) +
+  geom_point(size=6)  +
+  xlab(paste0("PC1: ",percentVar[1],"% variance")) +
+  ylab(paste0("PC2: ",percentVar[2],"% variance")) + 
+  scale_color_manual(values=c('#4d7399','#db9a18','#9e9d99','#af594f')) +
+  coord_fixed()
+```
+
+## if you are using a factor with more than 2 variables you may need to reorder them
+for example I have 4 conditions and I want control not co2 to be first, so its the one that everything else is compared to
+
+DEseq levels things alphabetically so you have to force the change
+
+```r
+dds <- DESeqDataSetFromMatrix(countData=countdata, colData=coldata, design=~parents+condition)
+dds$condition <- relevel(dds$condition, ref="control")
+# then re-run dds model
+```
+
+## if you are worried about low count genes skewing data you can filter those out
+
+```r
+dds <- estimateSizeFactors(dds)
+
+# keep if at least 6 samples with 5 or more gene counts
+idx <- rowSums( counts(dds, normalized=TRUE) >= 5 ) >= 6
+
+# then re-run dds model
+dds <- dds[idx,]
+dds.i<- DESeq(dds)
+```
+#
+```r
+# check results, total differentially expressed genes, any outliers
+res.i<-results(dds.i)
+
+summary(res.i)
+res.c<-res.i[order(res.i$padj),]
+table(res.i$padj<0.05)
+```
+
+## create table of variance stabilized data, useful for visualizations, PCAs
+
+```r
+vsd=getVarianceStabilizedData(dds.c)
+vals=cbind(res.c$pvalue, res.c$padj)
+colnames(vals)=c("pval.c", "padj.c")
+vsdpvals.c=cbind(vsd,vals)
+head(vsdpvals.c)
+write.csv(vsdpvals.c, 'brain_fam+cond_vsdpvals_outrem.csv', quote=F)
+```
+
+## PCA of all samples
+
+```r
+dat=read.csv('brain_fam+cond_vsdpvals_outrem.csv')
+dat=dat[which(dat$padj.c<0.1),]
+nrow(dat)
+names(dat)
+data=dat[,2:45]
+names(data)<-gsub("X", "", names(data))  ## remove X on sample names
+names(data)
+
+# table of colors for each samples, based on condition
+traits=read.table('Brain_cond_color.txt', header=T, stringsAsFactors = F)
+conditions= traits[,4]
+dd.pcoa=pcoa(dist(t(data)))
+scores=dd.pcoa$vectors
+# scores has multiple columns, don't have to use jsut 1 and 2 for the PCA
+scores[,1]
+scores[,2]
+plot(scores[,1], scores[,2], col=conditions, pch=17, cex=2)
+```
+
+## Use contrast to check for differences between 2 groups
+
+```r
+res<-results(dds.c, contrast=c('condition','control', 'combo'))
+mcols(res,use.names=TRUE)
+table(res$padj<0.05)
+
+# writes out a file of all the genes, need if using GO_MWU for gene ontology
+write.csv(res, file="ctrlvscombo_allbrain3.csv") 
+
+sigs<-res[which(res$padj<0.05),] 
+
+# writes out a file of just the significantly different genes between the 2 groups
+write.csv(sigs, "ctrlvscombo_sigbrain3.csv", quote=F)
+```
+ can do this for multiple groups, just change the contrast=c()
+
+## once you have your set of differentially expressed genes between groups you want to look at the functions and KEGG pathways of those genes
+
+## Gene ontology
+You will need an annotated genome/transcriptome with GO terms for this. 
+If you used trinity to build a transcriptome you can annotate it with this:
+https://github.com/Trinotate/Trinotate/wiki
+
+I used GO_MWU https://github.com/z0on/GO_MWU, Developed by Mikhail Matz at UT, R and perl based script.
+
+Easy to use and you just need a csv table from DESeq2 and a list of genes with their associated GO terms
+
+There are many other options but make sure they work for non-model organisms!
+
+topGO is a popular one in R
+
+## KEGG analysis
+You will need your genome/transcriptome annotated by kegg. If this hasn't been done yet use this tool:
+https://www.kegg.jp/blastkoala/
+
+then you take the kegg #s associated with your significant differentially expressed genes and plug them into that database to get the functions. You can run the search organism specific, try to choose one closely related to your species
+https://www.genome.jp/kegg/pathway.html
+
+If you want to do the search part in R, there's a package called clusterProfiler
+
+You still need the organism specific tag for this, so look that up on the KEGG website first
+https://bioconductor.org/packages/release/bioc/html/clusterProfiler.html
