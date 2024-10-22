@@ -470,10 +470,12 @@ write.csv(sig, file="transvsacuteCO2NTT_sig.csv")
 ## bubble graph GO terms
 ```{r}
 data<-read.table("goTerm_co2par2.txt", header=T)
-ggplot(data, aes(x = condition, y = go)) +        
+peg("go_plot.jpg")
+ggplot(data, aes(x = condition, y = go)) + 
 	geom_point(aes(color = Delta_rank, size = FDR), alpha = 0.8) + ## alpha is opacity of bubbles
 	scale_color_gradient2(low = '#00897B', mid = 'white', high = '#8E24AA') + ##green to purple
 	scale_size(range = c(10, 4)) + ##bubble sizes, decreasing with increased FDR
 	theme_classic() ## removes background
+dev.off()
 ```
-![](/Users/monroea/Downloads/bubbleGraph_goTerms.pdf)
+![img](https://github.com/monroea22/CO2_parents/blob/main/figures/go_plot.jpg)
