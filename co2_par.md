@@ -115,7 +115,7 @@ ggplot(pcData, aes(PC1, PC2, color= condition, shape=parents, group=condition)) 
   stat_ellipse(type="norm", linetype=2)
 dev.off()
 ```
-![<src="figures/pca4.pdf"/>](https://github.com/monroea22/CO2_parents)
+![<src="figures/pca4.pdf"/>](https://github.com/monroea22/CO2_parents/blob/main/figures/pca4.pdf)
 
 
 ### PCA with just control and transgenerational individuals (removing acute conditions)
