@@ -1,0 +1,110 @@
+# Sequence prep
+
+## read this paper before starting:
+https://doi.org/10.1093/bib/bbab563
+
+## download data to correct spot on server
+```bash
+scp -r /path to data /path to where you want to save it
+```
+## Use fastqc to make sure data looks ok, and determine cutoff for trimming
+```bash
+fastqc sample_name.fq.gz
+```
+## use trimmomatic to trim fastq files
+
+```bash
+# to run in a loop create a text file of sample names
+# folder should only have fastq files
+# may need to change this based on how files are named
+ls | cut -d _ -f 1|sort | uniq > brain_list.txt
+
+# check file, make sure only one name per sample
+nano brain_list.txt
+```
+
+## run trimmomatic in a loop
+```bash
+# change path to trimmomatic, or if it's in PATH just use the jar file
+# this trims with getting rid of first 14bp (change based on fastqc) 4:20 sliding window, minimum length of 40, and phred 33 is standard,
+# change the Illuminaclip file to one with adapters used in your sequencing
+
+ for f in $(<brain_list.txt); do time java -jar ~/Documents/Programs/Trimmomatic-0.36/trimmomatic-0.36.jar PE ${f}_R1.fastq.gz ${f}_R2.fastq.gz -baseout trimmed/${f}.fq.gz ILLUMINACLIP:trim_adapt.fasta:2:30:10 HEADCROP:14 SLIDINGWINDOW:4:20 MINLEN:40; done
+
+```
+
+## run fastqc again to ensure adapters and crappy ends were removed
+
+```bash
+fastqc sample_name.fq.gz
+
+#to run in loop through all samples
+for f in $(<brain_list.txt); do fastqc ${f}_1P.fq.gz ${f}_2P.fq.gz; done
+
+```
+
+## if you don't have an annotated genome you have to build a de novo transcriptome
+most used one is Trinity  https://github.com/trinityrnaseq/trinityrnaseq
+
+good paper on de novo assembly programs:
+https://academic.oup.com/gigascience/article/8/5/giz039/5488105
+
+
+## alignment of RNA to reference 
+I used HISAT2, works well and widely used https://daehwankimlab.github.io/hisat2/
+
+I would also recommend trying Salmon  https://github.com/COMBINE-lab/salmon
+
+and maybe kallisto https://github.com/pachterlab/kallisto
+
+mapping will let you know how good your reference is, mapping shpuld be >80% for all samples
+
+
+## if you have an annotated reference genome and are using HISAT2
+build an index first using annotation gtf and genome fasta files
+
+```bash
+hisat2_extract_splice_sites.py apoly_primary_geneannotation_v1.gtf > splicesites.tsv
+
+hisat2_extract_exons.py apoly_primary_geneannotation_v1.gtf > exons.tsv
+
+hisat2-build -p 12 --ss splicesites.tsv --exon exons.tsv apoly_primary_v1.fasta apoly
+
+```
+
+## run hisat2 as loop
+
+```bash
+# use this command in folder with only trimmed files
+ls | cut -d _ -f 1 | sort | uniq > samples_all.txt
+
+#run hisat2
+for f in $(<samples_all.txt); do hisat2 -p 10 --dta -x ~/Desktop/Co2xTemp/hisat_2/Index/apoly -1 ~/Desktop/Co2xTemp/hisat_2/paired_all/${f}_1P.fq.gz -2 ~/Desktop/Co2xTemp/hisat_2/paired_all/${f}_2P.fq.gz -S ${f}.sam; done
+
+#will output as sam files
+```
+
+## convert sam files into bam files
+
+```bash
+for f in $(<samples_all.txt); do samtools sort -@12 -o ${f}.bam ${f}.sam; done
+```
+
+
+
+## abundance estimates
+if using salmon or kallisto this is built into the workflow
+
+if not there are multiple programs. I used Feature counts, mainly because its the only one I could get to work on the server at the time
+
+HTseq-count is also widely used, python based
+
+
+## if you want to run feature counts
+need annotation gtf file
+
+```bash
+ featureCounts -T 8 -t exon -g trancript_id -p -s2 -Q 20 -B -a ~/Desktop/apoly_genome/apoly_primary_geneannotation_v1.gtf -o co2xtemp_countsTable.txt *.bam
+```
+
+outputs a text file that you can import into R for differential expression analysis
