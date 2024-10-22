@@ -1,4 +1,4 @@
-#CO<sub>2</sub> Parents 
+# CO<sub>2</sub> Parents 
 
 ### running on server, with bash scripts
 ##### check quality of fastq files
@@ -11,7 +11,7 @@ fastqc ./
 multiqc ./
 ```
 
-##trim files with trimmomatic
+## trim files with trimmomatic
 ##### sliding window 4:20, min length of 40, phred 33
 
 ```{bash}
@@ -115,7 +115,7 @@ ggplot(pcData, aes(PC1, PC2, color= condition, shape=parents, group=condition)) 
   stat_ellipse(type="norm", linetype=2)
 dev.off()
 ```
-![](/Users/monroea/Downloads/pca4.pdf)
+![](figures/pca4.pdf)
 
 
 
